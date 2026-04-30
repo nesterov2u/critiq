@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground font-sans antialiased;
+  background-image:
+    radial-gradient(circle at top left, rgba(217, 119, 87, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(122, 153, 96, 0.15), transparent 24%),
+    linear-gradient(180deg, #fbf7f0 0%, #f5efe4 100%);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
