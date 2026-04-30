@@ -87,13 +87,20 @@ test("POST returns 400 for malformed JSON", async () => {
 });
 
 test("POST returns 429 when rate limit is exceeded", async () => {
-  global.fetch = async () =>
-    new Response(
+  global.fetch = async (input) => {
+    const url = String(input);
+
+    if (url.includes("/v1/files")) {
+      return new Response(JSON.stringify({ id: "file_123" }), { status: 200 });
+    }
+
+    return new Response(
       JSON.stringify({
         output: [{ content: [{ parsed: critique }] }]
       }),
       { status: 200 }
     );
+  };
 
   for (let index = 0; index < rateLimitMaxRequests; index += 1) {
     const response = await POST(createRequest(JSON.stringify(validPayload), "10.0.0.1"));
@@ -110,7 +117,15 @@ test("POST returns 429 when rate limit is exceeded", async () => {
 });
 
 test("POST returns 502 when OpenAI fails", async () => {
-  global.fetch = async () => new Response("upstream failure", { status: 500 });
+  global.fetch = async (input) => {
+    const url = String(input);
+
+    if (url.includes("/v1/files")) {
+      return new Response("upstream failure", { status: 500 });
+    }
+
+    return new Response("upstream failure", { status: 500 });
+  };
 
   const response = await POST(createRequest(JSON.stringify(validPayload)));
   const payload = await response.json();
@@ -121,13 +136,20 @@ test("POST returns 502 when OpenAI fails", async () => {
 });
 
 test("POST returns 502 when model response is invalid", async () => {
-  global.fetch = async () =>
-    new Response(
+  global.fetch = async (input) => {
+    const url = String(input);
+
+    if (url.includes("/v1/files")) {
+      return new Response(JSON.stringify({ id: "file_123" }), { status: 200 });
+    }
+
+    return new Response(
       JSON.stringify({
         output_text: JSON.stringify({ summary: "missing most required fields" })
       }),
       { status: 200 }
     );
+  };
 
   const response = await POST(createRequest(JSON.stringify(validPayload)));
   const payload = await response.json();
@@ -138,13 +160,20 @@ test("POST returns 502 when model response is invalid", async () => {
 });
 
 test("POST returns structured critique data on success", async () => {
-  global.fetch = async () =>
-    new Response(
+  global.fetch = async (input) => {
+    const url = String(input);
+
+    if (url.includes("/v1/files")) {
+      return new Response(JSON.stringify({ id: "file_123" }), { status: 200 });
+    }
+
+    return new Response(
       JSON.stringify({
         output: [{ content: [{ parsed: critique }] }]
       }),
       { status: 200 }
     );
+  };
 
   const response = await POST(createRequest(JSON.stringify(validPayload)));
   const payload = await response.json();

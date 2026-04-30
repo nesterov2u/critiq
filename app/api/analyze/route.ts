@@ -4,10 +4,16 @@ import {
   errorMessages,
   openAiTimeoutMs
 } from "@/lib/constants";
-import { buildCritiquePrompt, buildOpenAiPayload } from "@/lib/openai";
+import {
+  buildCritiquePrompt,
+  buildImageFileName,
+  buildOpenAiPayload
+} from "@/lib/openai";
 import { checkRateLimit, getRequestIp } from "@/lib/rate-limit";
 import {
   extractStructuredOutput,
+  getBase64Body,
+  getImageMimeType,
   isCritiqueResult,
   validateAnalyzeRequest
 } from "@/lib/validation";
@@ -62,13 +68,58 @@ export async function POST(request: Request) {
       validatedPayload.data.screenType,
       validatedPayload.data.reviewMode
     );
+    const mimeType = getImageMimeType(validatedPayload.data.imageBase64);
+
+    if (!mimeType) {
+      return jsonError(errorMessages.unsupportedImage, errorCodes.unsupportedImage, 400);
+    }
+
+    const fileUploadBody = new FormData();
+    const binary = Buffer.from(getBase64Body(validatedPayload.data.imageBase64), "base64");
+    const blob = new Blob([binary], { type: mimeType });
+    fileUploadBody.append("purpose", "user_data");
+    fileUploadBody.append("file", blob, buildImageFileName(mimeType));
+
+    const fileUploadResponse = await fetch("https://api.openai.com/v1/files", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: fileUploadBody,
+      signal: controller.signal
+    });
+
+    if (!fileUploadResponse.ok) {
+      const errorText = await fileUploadResponse.text();
+      clearTimeout(timeoutId);
+      logServerError(errorCodes.openAiFailure, errorText, {
+        ip,
+        status: fileUploadResponse.status,
+        stage: "file_upload"
+      });
+
+      return jsonError(errorMessages.openAiFailure, errorCodes.openAiFailure, 502);
+    }
+
+    const uploadedFile = (await fileUploadResponse.json()) as { id?: string };
+
+    if (!uploadedFile.id) {
+      clearTimeout(timeoutId);
+      logServerError(errorCodes.openAiFailure, "Missing file id", {
+        ip,
+        stage: "file_upload"
+      });
+
+      return jsonError(errorMessages.openAiFailure, errorCodes.openAiFailure, 502);
+    }
+
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
-      body: JSON.stringify(buildOpenAiPayload(validatedPayload.data.imageBase64, prompt)),
+      body: JSON.stringify(buildOpenAiPayload(uploadedFile.id, prompt)),
       signal: controller.signal
     }).finally(() => clearTimeout(timeoutId));
 
@@ -76,7 +127,8 @@ export async function POST(request: Request) {
       const errorText = await response.text();
       logServerError(errorCodes.openAiFailure, errorText, {
         ip,
-        status: response.status
+        status: response.status,
+        stage: "responses"
       });
 
       return jsonError(errorMessages.openAiFailure, errorCodes.openAiFailure, 502);

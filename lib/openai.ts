@@ -100,7 +100,7 @@ Screen type: ${screenType}
 Review mode: ${reviewMode}`;
 }
 
-export function buildOpenAiPayload(imageBase64: string, prompt: string) {
+export function buildOpenAiPayload(fileId: string, prompt: string) {
   return {
     model: openAiModel,
     input: [
@@ -113,7 +113,7 @@ export function buildOpenAiPayload(imageBase64: string, prompt: string) {
           },
           {
             type: "input_image",
-            image_url: imageBase64,
+            file_id: fileId,
             detail: "high"
           }
         ]
@@ -128,4 +128,11 @@ export function buildOpenAiPayload(imageBase64: string, prompt: string) {
       }
     }
   };
+}
+
+export function buildImageFileName(mimeType: string) {
+  const subtype = mimeType.split("/")[1] ?? "png";
+  const normalizedSubtype = subtype === "jpeg" ? "jpg" : subtype;
+
+  return `critiq-upload.${normalizedSubtype}`;
 }
