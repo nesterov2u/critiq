@@ -1,198 +1,111 @@
-import { NextResponse } from "next/server";
-import { extractJson, isAnalyzeRequest, isCritiqueResult } from "@/lib/validation";
+import { jsonError, jsonSuccess } from "@/lib/api";
+import {
+  errorCodes,
+  errorMessages,
+  openAiTimeoutMs
+} from "@/lib/constants";
+import { buildCritiquePrompt, buildOpenAiPayload } from "@/lib/openai";
+import { checkRateLimit, getRequestIp } from "@/lib/rate-limit";
+import {
+  extractStructuredOutput,
+  isCritiqueResult,
+  validateAnalyzeRequest
+} from "@/lib/validation";
 
-const critiqueSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "overallScore",
-    "summary",
-    "visualHierarchy",
-    "uxUsability",
-    "visualDesign",
-    "conversion",
-    "topProblems",
-    "actionableImprovements"
-  ],
-  properties: {
-    overallScore: { type: "number" },
-    summary: { type: "string" },
-    visualHierarchy: {
-      type: "object",
-      additionalProperties: false,
-      required: ["score", "feedback"],
-      properties: {
-        score: { type: "number" },
-        feedback: { type: "string" }
-      }
-    },
-    uxUsability: {
-      type: "object",
-      additionalProperties: false,
-      required: ["score", "issues"],
-      properties: {
-        score: { type: "number" },
-        issues: {
-          type: "array",
-          items: { type: "string" }
-        }
-      }
-    },
-    visualDesign: {
-      type: "object",
-      additionalProperties: false,
-      required: ["score", "feedback"],
-      properties: {
-        score: { type: "number" },
-        feedback: { type: "string" }
-      }
-    },
-    conversion: {
-      type: "object",
-      additionalProperties: false,
-      required: ["score", "feedback"],
-      properties: {
-        score: { type: "number" },
-        feedback: { type: "string" }
-      }
-    },
-    topProblems: {
-      type: "array",
-      items: { type: "string" }
-    },
-    actionableImprovements: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["title", "description"],
-        properties: {
-          title: { type: "string" },
-          description: { type: "string" }
-        }
-      }
-    }
-  }
-} as const;
-
-const prompt = `You are a senior product designer reviewing a UI screenshot.
-
-Analyze:
-1. Visual hierarchy
-2. UX and usability
-3. Typography, spacing, contrast, layout
-4. Conversion effectiveness
-5. Top problems
-6. Actionable improvements
-
-Rules:
-- Avoid generic advice.
-- Be specific and practical.
-- Do not invent invisible interactions.
-- Mention uncertainty if something cannot be determined from the screenshot.
-- Use scores from 1 to 10.
-- Return only valid JSON.
-- If review mode is Roast mode, be sharper but still useful.`;
+function logServerError(code: string, error: unknown, details?: Record<string, unknown>) {
+  console.error("[analyze]", {
+    code,
+    message: error instanceof Error ? error.message : String(error),
+    ...details
+  });
+}
 
 export async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { ok: false, error: "OPENAI_API_KEY is not configured." },
-      { status: 500 }
-    );
+    return jsonError(errorMessages.missingApiKey, errorCodes.serverError, 500);
+  }
+
+  const ip = getRequestIp(request);
+  const rateLimit = checkRateLimit(ip);
+
+  if (!rateLimit.allowed) {
+    return jsonError(errorMessages.rateLimited, errorCodes.rateLimited, 429);
   }
 
   let payload: unknown;
 
   try {
     payload = await request.json();
-  } catch {
-    return NextResponse.json(
-      { ok: false, error: "Request body must be valid JSON." },
-      { status: 400 }
-    );
+  } catch (error) {
+    logServerError(errorCodes.invalidPayload, error, { ip });
+    return jsonError(errorMessages.invalidJson, errorCodes.invalidPayload, 400);
   }
 
-  if (!isAnalyzeRequest(payload)) {
-    return NextResponse.json(
-      { ok: false, error: "Invalid request payload." },
-      { status: 400 }
-    );
+  const validatedPayload = validateAnalyzeRequest(payload);
+
+  if (!validatedPayload.ok) {
+    const status = validatedPayload.code === errorCodes.imageTooLarge ? 413 : 400;
+    const message =
+      validatedPayload.code === errorCodes.unsupportedImage
+        ? errorMessages.unsupportedImage
+        : validatedPayload.code === errorCodes.imageTooLarge
+          ? errorMessages.imageTooLarge
+          : errorMessages.invalidPayload;
+
+    return jsonError(message, validatedPayload.code, status);
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), openAiTimeoutMs);
+    const prompt = buildCritiquePrompt(
+      validatedPayload.data.screenType,
+      validatedPayload.data.reviewMode
+    );
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: `${prompt}
-
-Screen type: ${payload.screenType}
-Review mode: ${payload.reviewMode}`
-              },
-              {
-                type: "input_image",
-                image_url: payload.imageBase64,
-                detail: "high"
-              }
-            ]
-          }
-        ],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "design_critique",
-            strict: true,
-            schema: critiqueSchema
-          }
-        }
-      })
-    });
+      body: JSON.stringify(buildOpenAiPayload(validatedPayload.data.imageBase64, prompt)),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
 
     if (!response.ok) {
       const errorText = await response.text();
+      logServerError(errorCodes.openAiFailure, errorText, {
+        ip,
+        status: response.status
+      });
 
-      return NextResponse.json(
-        { ok: false, error: `OpenAI request failed: ${errorText}` },
-        { status: 502 }
-      );
+      return jsonError(errorMessages.openAiFailure, errorCodes.openAiFailure, 502);
     }
 
-    const completion = (await response.json()) as {
-      output_text?: string;
-    };
-
-    const rawText = completion.output_text ?? "";
-    const parsed = extractJson(rawText);
+    const completion = (await response.json()) as unknown;
+    const parsed = extractStructuredOutput(completion);
 
     if (!parsed || !isCritiqueResult(parsed)) {
-      return NextResponse.json(
-        { ok: false, error: "Model returned invalid critique JSON." },
-        { status: 502 }
+      logServerError(errorCodes.invalidModelResponse, "Invalid structured output", { ip });
+      return jsonError(
+        errorMessages.invalidModelResponse,
+        errorCodes.invalidModelResponse,
+        502
       );
     }
 
-    return NextResponse.json({ ok: true, data: parsed });
-  } catch (caughtError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unexpected server error."
-      },
-      { status: 500 }
+    return jsonSuccess(parsed);
+  } catch (error) {
+    const isAbort = error instanceof Error && error.name === "AbortError";
+
+    logServerError(isAbort ? errorCodes.openAiFailure : errorCodes.serverError, error, {
+      ip
+    });
+
+    return jsonError(
+      isAbort ? errorMessages.openAiFailure : errorMessages.serverError,
+      isAbort ? errorCodes.openAiFailure : errorCodes.serverError,
+      isAbort ? 504 : 500
     );
   }
 }

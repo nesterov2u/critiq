@@ -6,16 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import {
-  type CritiqueResult,
+  errorCodes,
+  errorMessages,
+  maxImageSizeBytes,
+  maxImageSizeLabel,
   reviewModes,
   screenTypes,
-  type ReviewMode,
-  type ScreenType
+  supportedImageMimeTypes
+} from "@/lib/constants";
+import type {
+  AnalyzeResponse,
+  CritiqueResult,
+  ReviewMode,
+  ScreenType
 } from "@/lib/types";
-
-type AnalyzeResponse =
-  | { ok: true; data: CritiqueResult }
-  | { ok: false; error: string };
 
 function toBase64(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -41,6 +45,45 @@ function ScoreBadge({ score }: { score: number }) {
   );
 }
 
+function getUploadValidationError(file: File) {
+  const normalizedType = file.type.toLowerCase();
+
+  if (!supportedImageMimeTypes.includes(normalizedType as (typeof supportedImageMimeTypes)[number])) {
+    return errorMessages.unsupportedImage;
+  }
+
+  if (file.size > maxImageSizeBytes) {
+    return errorMessages.imageTooLarge;
+  }
+
+  return "";
+}
+
+function getErrorMessage(response: AnalyzeResponse | null) {
+  if (!response || response.ok) {
+    return errorMessages.serverError;
+  }
+
+  switch (response.code) {
+    case errorCodes.invalidPayload:
+      return errorMessages.invalidPayload;
+    case errorCodes.unsupportedImage:
+      return errorMessages.unsupportedImage;
+    case errorCodes.imageTooLarge:
+      return errorMessages.imageTooLarge;
+    case errorCodes.rateLimited:
+      return errorMessages.rateLimited;
+    case errorCodes.openAiFailure:
+      return errorMessages.openAiFailure;
+    case errorCodes.invalidModelResponse:
+      return errorMessages.invalidModelResponse;
+    case errorCodes.serverError:
+      return errorMessages.serverError;
+    default:
+      return response.error || errorMessages.serverError;
+  }
+}
+
 export function AnalyzeForm() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
@@ -49,6 +92,7 @@ export function AnalyzeForm() {
   const [result, setResult] = useState<CritiqueResult | null>(null);
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [hasAttemptedAnalyze, setHasAttemptedAnalyze] = useState(false);
 
   const hasImage = useMemo(() => Boolean(file && previewUrl), [file, previewUrl]);
 
@@ -61,7 +105,6 @@ export function AnalyzeForm() {
   }, [previewUrl]);
 
   const updateFile = (nextFile: File | null) => {
-    setResult(null);
     setError("");
 
     if (!nextFile) {
@@ -73,8 +116,10 @@ export function AnalyzeForm() {
       return;
     }
 
-    if (!nextFile.type.startsWith("image/")) {
-      setError("Please upload a valid image file.");
+    const validationError = getUploadValidationError(nextFile);
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -84,6 +129,12 @@ export function AnalyzeForm() {
 
     setFile(nextFile);
     setPreviewUrl(URL.createObjectURL(nextFile));
+  };
+
+  const resetUpload = () => {
+    updateFile(null);
+    setHasAttemptedAnalyze(false);
+    setResult(null);
   };
 
   const onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -101,9 +152,16 @@ export function AnalyzeForm() {
       return;
     }
 
+    const validationError = getUploadValidationError(file);
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setHasAttemptedAnalyze(true);
     setIsLoading(true);
     setError("");
-    setResult(null);
 
     try {
       const imageBase64 = await toBase64(file);
@@ -126,7 +184,7 @@ export function AnalyzeForm() {
       }
 
       if (!response.ok || !rawPayload.ok) {
-        throw new Error(rawPayload.ok ? "Analysis failed." : rawPayload.error);
+        throw new Error(getErrorMessage(rawPayload));
       }
 
       setResult(rawPayload.data);
@@ -134,7 +192,7 @@ export function AnalyzeForm() {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Something went wrong while analyzing the screenshot."
+          : errorMessages.serverError
       );
     } finally {
       setIsLoading(false);
@@ -170,7 +228,7 @@ export function AnalyzeForm() {
             </div>
             <p className="text-base font-medium">Drag and drop your screenshot</p>
             <p className="mt-2 text-sm text-foreground/60">
-              or click to browse PNG, JPG, WEBP, or GIF
+              or click to browse PNG, JPG, WEBP, or GIF up to {maxImageSizeLabel}
             </p>
           </label>
 
@@ -215,6 +273,14 @@ export function AnalyzeForm() {
                 "Analyze"
               )}
             </Button>
+            <Button
+              variant="secondary"
+              className="min-w-36"
+              onClick={resetUpload}
+              disabled={isLoading}
+            >
+              Reset
+            </Button>
             <p className="text-sm text-foreground/55">
               Screenshot goes to the vision model with your chosen review angle.
             </p>
@@ -235,7 +301,19 @@ export function AnalyzeForm() {
             <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground/60">
               Screenshot preview
             </h2>
-            {hasImage ? <span className="text-xs text-foreground/45">{file?.name}</span> : null}
+            {hasImage ? (
+              <div className="flex items-center gap-2">
+                <span className="max-w-44 truncate text-xs text-foreground/45">{file?.name}</span>
+                <Button
+                  variant="ghost"
+                  className="h-8 px-3 text-xs"
+                  onClick={resetUpload}
+                  disabled={isLoading}
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : null}
           </div>
           <div className="flex min-h-80 items-center justify-center rounded-[24px] border bg-white/55">
             {previewUrl ? (
@@ -341,7 +419,23 @@ export function AnalyzeForm() {
               </div>
             </Card>
           </div>
-        ) : null}
+        ) : (
+          <Card className="p-6 sm:p-7">
+            <div className="space-y-3 text-center sm:text-left">
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground/55">
+                Analysis result
+              </p>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                {hasAttemptedAnalyze ? "Analysis did not complete" : "No critique yet"}
+              </h2>
+              <p className="max-w-xl text-sm leading-6 text-foreground/65">
+                {hasAttemptedAnalyze
+                  ? "Fix the issue above and run the analysis again. The app will keep the latest successful critique once you have one."
+                  : "Upload a screen, choose the context, and run analysis to see structured design feedback here."}
+              </p>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

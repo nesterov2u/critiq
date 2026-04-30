@@ -1,16 +1,4 @@
-export const screenTypes = [
-  "Landing page",
-  "Mobile app",
-  "Dashboard",
-  "E-commerce",
-  "SaaS product"
-] as const;
-
-export const reviewModes = [
-  "Neutral",
-  "Senior designer",
-  "Roast mode"
-] as const;
+import { reviewModes, screenTypes } from "@/lib/constants";
 
 export type ScreenType = (typeof screenTypes)[number];
 export type ReviewMode = (typeof reviewModes)[number];
@@ -46,3 +34,25 @@ export type AnalyzeRequest = {
   screenType: ScreenType;
   reviewMode: ReviewMode;
 };
+
+export type ApiErrorCode =
+  | "INVALID_PAYLOAD"
+  | "UNSUPPORTED_IMAGE"
+  | "IMAGE_TOO_LARGE"
+  | "RATE_LIMITED"
+  | "OPENAI_FAILURE"
+  | "INVALID_MODEL_RESPONSE"
+  | "SERVER_ERROR";
+
+export type AnalyzeSuccessResponse = {
+  ok: true;
+  data: CritiqueResult;
+};
+
+export type AnalyzeErrorResponse = {
+  ok: false;
+  error: string;
+  code?: ApiErrorCode;
+};
+
+export type AnalyzeResponse = AnalyzeSuccessResponse | AnalyzeErrorResponse;
