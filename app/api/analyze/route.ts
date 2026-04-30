@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     const fileUploadBody = new FormData();
     const binary = Buffer.from(getBase64Body(validatedPayload.data.imageBase64), "base64");
     const blob = new Blob([binary], { type: mimeType });
-    fileUploadBody.append("purpose", "user_data");
+    fileUploadBody.append("purpose", "vision");
     fileUploadBody.append("file", blob, buildImageFileName(mimeType));
 
     const fileUploadResponse = await fetch("https://api.openai.com/v1/files", {
