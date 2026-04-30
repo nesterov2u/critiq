@@ -5,11 +5,9 @@ import {
   AlertCircle,
   Brain,
   ChevronRight,
-  Gauge,
   ImagePlus,
   LoaderCircle,
   ScanSearch,
-  ShieldCheck,
   Sparkles,
   Upload
 } from "lucide-react";
@@ -809,33 +807,6 @@ export function AnalyzeForm() {
             </div>
           </Card>
 
-          <Card className="xl:col-span-7">
-            <div className="flex h-full flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-2xl space-y-3">
-                <h3 className="font-display text-[2.25rem] leading-none text-foreground">
-                  Сила AI в интерфейсной диагностике
-                </h3>
-                <p className="text-base leading-8 text-foreground/66">
-                  Каждая сессия считывает сигналы layout, интерпретирует визуальную иерархию
-                  и превращает данные со скриншота в прикладные продуктовые рекомендации.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="rounded-full bg-[#eff4ff] px-4 py-2 text-sm text-foreground/65">
-                  <ShieldCheck className="mr-2 inline size-4" />
-                  Основано на скриншоте
-                </div>
-                <div className="rounded-full bg-[#eff4ff] px-4 py-2 text-sm text-foreground/65">
-                  <Gauge className="mr-2 inline size-4" />
-                  Структурированные оценки
-                </div>
-                <Button className="h-16 px-8 text-lg">
-                  Попробовать капсулу
-                </Button>
-              </div>
-            </div>
-          </Card>
         </section>
       </div>
     </div>
