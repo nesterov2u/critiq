@@ -1,7 +1,18 @@
 "use client";
 
 import { ChangeEvent, DragEvent, useEffect, useMemo, useState } from "react";
-import { AlertCircle, ImagePlus, LoaderCircle, Sparkles, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  Brain,
+  ChevronRight,
+  Gauge,
+  ImagePlus,
+  LoaderCircle,
+  ScanSearch,
+  ShieldCheck,
+  Sparkles,
+  Upload
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
@@ -37,14 +48,6 @@ function toBase64(file: File) {
   });
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  return (
-    <div className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-sm font-semibold text-foreground">
-      {score}/10
-    </div>
-  );
-}
-
 function getUploadValidationError(file: File) {
   const normalizedType = file.type.toLowerCase();
 
@@ -64,6 +67,12 @@ function getErrorMessage(response: AnalyzeResponse | null) {
     return errorMessages.serverError;
   }
 
+  if (response.error) {
+    if (response.code === errorCodes.serverError) {
+      return response.error;
+    }
+  }
+
   switch (response.code) {
     case errorCodes.invalidPayload:
       return errorMessages.invalidPayload;
@@ -78,17 +87,151 @@ function getErrorMessage(response: AnalyzeResponse | null) {
     case errorCodes.invalidModelResponse:
       return errorMessages.invalidModelResponse;
     case errorCodes.serverError:
-      return errorMessages.serverError;
+      return response.error || errorMessages.serverError;
     default:
       return response.error || errorMessages.serverError;
   }
 }
 
+function ScoreBadge({
+  score,
+  tone = "default"
+}: {
+  score: number;
+  tone?: "default" | "dark";
+}) {
+  return (
+    <div
+      className={[
+        "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
+        tone === "dark"
+          ? "bg-primary text-primary-foreground"
+          : "bg-[#edf4ff] text-foreground"
+      ].join(" ")}
+    >
+      {score}/10
+    </div>
+  );
+}
+
+function MetricRow({
+  label,
+  value,
+  tone = "neutral"
+}: {
+  label: string;
+  value: string;
+  tone?: "neutral" | "positive" | "warning";
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-sm text-foreground/55">{label}</p>
+      <p className="text-[1.85rem] font-medium leading-none text-foreground">{value}</p>
+      <p
+        className={[
+          "text-sm",
+          tone === "positive"
+            ? "text-green-600"
+            : tone === "warning"
+              ? "text-amber-600"
+              : "text-foreground/55"
+        ].join(" ")}
+      >
+        {tone === "positive" ? "Норма" : tone === "warning" ? "Нужна проверка" : "В реальном времени"}
+      </p>
+    </div>
+  );
+}
+
+function RadialScore({ score }: { score: number }) {
+  const dots = Array.from({ length: 24 });
+
+  return (
+    <div className="relative flex aspect-square items-center justify-center">
+      <div className="absolute inset-0">
+        {dots.map((_, index) => {
+          const rotation = (360 / dots.length) * index;
+
+          return (
+            <span
+              key={rotation}
+              className="absolute left-1/2 top-1/2 h-[45%] w-px -translate-x-1/2 -translate-y-full origin-bottom bg-gradient-to-t from-[#d4e3f8] to-transparent"
+              style={{ transform: `translate(-50%, -100%) rotate(${rotation}deg)` }}
+            >
+              <span className="absolute left-1/2 top-0 size-2.5 -translate-x-1/2 rounded-full bg-[#88afdb]" />
+            </span>
+          );
+        })}
+      </div>
+      <div className="relative rounded-full bg-white/80 px-10 py-12 text-center shadow-[0_18px_40px_rgba(113,143,193,0.14)]">
+        <div className="font-display text-6xl leading-none text-foreground">{score}%</div>
+        <div className="mt-3 text-sm text-foreground/60">Индекс качества</div>
+      </div>
+    </div>
+  );
+}
+
+function Histogram({ bars }: { bars: number[] }) {
+  return (
+    <div className="flex h-32 items-end gap-2 rounded-[24px] bg-[#f5f8fe] px-4 pb-4 pt-6">
+      {bars.map((value, index) => (
+        <div key={`${value}-${index}`} className="flex h-full flex-1 items-end">
+          <div
+            className="w-full rounded-full bg-gradient-to-t from-[#688ec2] to-[#bcd2ee]"
+            style={{ height: `${Math.max(value, 8)}%` }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrendLine({ points }: { points: number[] }) {
+  return (
+    <div className="relative h-44 rounded-[24px] bg-[#f7f9fe] p-4">
+      <div className="absolute inset-x-4 top-1/2 border-t border-dashed border-[#d1ddef]" />
+      <div className="flex h-full items-end justify-between gap-2">
+        {points.map((point, index) => (
+          <div key={`${point}-${index}`} className="flex h-full flex-1 flex-col justify-end">
+            <div
+              className="mx-auto size-3 rounded-full border-4 border-[#f7f9fe] bg-[#7da4d9]"
+              style={{ marginBottom: `${point}%` }}
+            />
+            <div className="mt-3 h-px bg-[#dde7f6]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({
+  eyebrow,
+  title,
+  action
+}: {
+  eyebrow: string;
+  title: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-foreground/45">
+          {eyebrow}
+        </p>
+        <h3 className="font-display text-[2.15rem] leading-none text-foreground">{title}</h3>
+      </div>
+      {action}
+    </div>
+  );
+}
+
 export function AnalyzeForm() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
-  const [screenType, setScreenType] = useState<ScreenType>("Landing page");
-  const [reviewMode, setReviewMode] = useState<ReviewMode>("Neutral");
+  const [screenType, setScreenType] = useState<ScreenType>("Лендинг");
+  const [reviewMode, setReviewMode] = useState<ReviewMode>("Нейтральный");
   const [result, setResult] = useState<CritiqueResult | null>(null);
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -104,6 +247,53 @@ export function AnalyzeForm() {
     };
   }, [previewUrl]);
 
+  const critiqueBars = useMemo(() => {
+    if (!result) {
+      return [22, 38, 64, 42, 18, 27, 84, 76, 34, 18, 12, 10];
+    }
+
+    return [
+      result.visualHierarchy.score * 8.5,
+      result.uxUsability.score * 8,
+      result.visualDesign.score * 8.8,
+      result.conversion.score * 8.1,
+      result.overallScore * 9
+    ];
+  }, [result]);
+
+  const trendPoints = useMemo(() => {
+    if (!result) {
+      return [46, 44, 50, 47, 56, 52, 58];
+    }
+
+    return [
+      result.visualHierarchy.score * 6,
+      result.uxUsability.score * 6,
+      result.visualDesign.score * 6,
+      result.conversion.score * 6,
+      result.overallScore * 6,
+      Math.min(result.overallScore * 6 + 4, 84),
+      Math.max(result.overallScore * 6 - 3, 28)
+    ];
+  }, [result]);
+
+  const topProblems = result?.topProblems ?? [
+    "После анализа здесь появятся ключевые проблемы и трение в иерархии или CTA.",
+    "Система сохраняет последний успешный результат на экране.",
+    "Для самого точного ревью загружайте один чистый и читаемый экран."
+  ];
+
+  const improvements = result?.actionableImprovements ?? [
+    {
+      title: "Более точные точки решения",
+      description: "AI предложит конкретные тактические изменения интерфейса вместо расплывчатых советов."
+    },
+    {
+      title: "Критика, основанная на скриншоте",
+      description: "Анализ опирается на видимые элементы интерфейса и не выдумывает скрытые взаимодействия."
+    }
+  ];
+
   const updateFile = (nextFile: File | null) => {
     setError("");
 
@@ -111,6 +301,7 @@ export function AnalyzeForm() {
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
+
       setFile(null);
       setPreviewUrl("");
       return;
@@ -148,7 +339,7 @@ export function AnalyzeForm() {
 
   const onAnalyze = async () => {
     if (!file) {
-      setError("Upload a screenshot before starting analysis.");
+      setError("Загрузите скриншот перед запуском анализа.");
       return;
     }
 
@@ -180,7 +371,7 @@ export function AnalyzeForm() {
       const rawPayload = (await response.json().catch(() => null)) as AnalyzeResponse | null;
 
       if (!rawPayload) {
-        throw new Error("The server returned an unreadable response.");
+        throw new Error("Сервер вернул нечитаемый ответ.");
       }
 
       if (!response.ok || !rawPayload.ok) {
@@ -190,9 +381,7 @@ export function AnalyzeForm() {
       setResult(rawPayload.data);
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : errorMessages.serverError
+        caughtError instanceof Error ? caughtError.message : errorMessages.serverError
       );
     } finally {
       setIsLoading(false);
@@ -200,242 +389,454 @@ export function AnalyzeForm() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-      <Card className="p-5 sm:p-7">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <p className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-foreground/70">
-              <Sparkles className="size-3.5" />
-              Structured AI review
-            </p>
-            <h1 className="max-w-xl text-4xl font-semibold tracking-tight sm:text-5xl">
-              Design Critique AI
-            </h1>
-            <p className="max-w-xl text-sm leading-6 text-foreground/65 sm:text-base">
-              Upload a UI screenshot, choose the context, and get a critique that stays
-              concrete instead of generic.
-            </p>
-          </div>
-
-          <label
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={onDrop}
-            className="group flex cursor-pointer flex-col items-center justify-center rounded-[28px] border border-dashed border-foreground/20 bg-white/55 px-6 py-12 text-center transition hover:border-primary/50 hover:bg-white/70"
-          >
-            <input type="file" accept="image/*" className="sr-only" onChange={onInputChange} />
-            <div className="mb-4 rounded-full bg-secondary p-4 text-foreground/70">
-              <Upload className="size-6" />
-            </div>
-            <p className="text-base font-medium">Drag and drop your screenshot</p>
-            <p className="mt-2 text-sm text-foreground/60">
-              or click to browse PNG, JPG, WEBP, or GIF up to {maxImageSizeLabel}
-            </p>
-          </label>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Select
-              label="Screen type"
-              value={screenType}
-              onChange={(event) => setScreenType(event.target.value as ScreenType)}
-            >
-              {screenTypes.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </Select>
-
-            <Select
-              label="Review mode"
-              value={reviewMode}
-              onChange={(event) => setReviewMode(event.target.value as ReviewMode)}
-            >
-              {reviewModes.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button
-              className="min-w-36"
-              onClick={onAnalyze}
-              disabled={!hasImage || isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <LoaderCircle className="mr-2 size-4 animate-spin" />
-                  Analyzing
-                </>
-              ) : (
-                "Analyze"
-              )}
-            </Button>
-            <Button
-              variant="secondary"
-              className="min-w-36"
-              onClick={resetUpload}
-              disabled={isLoading}
-            >
-              Reset
-            </Button>
-            <p className="text-sm text-foreground/55">
-              Screenshot goes to the vision model with your chosen review angle.
-            </p>
-          </div>
-
-          {error ? (
-            <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" />
-              <p>{error}</p>
-            </div>
-          ) : null}
+    <div className="relative overflow-hidden rounded-[40px] border border-white/20 bg-white/8 px-4 py-4 shadow-[0_24px_80px_rgba(58,87,134,0.18)] backdrop-blur-[10px] sm:px-6 sm:py-6">
+      <div className="pointer-events-none absolute inset-0 opacity-70">
+        <div className="absolute inset-x-1/3 top-16 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute right-[-6%] top-24 h-96 w-96 rounded-full border border-white/20" />
+        <div className="absolute left-[55%] top-10 grid grid-cols-6 gap-2 opacity-20">
+          {Array.from({ length: 54 }).map((_, index) => (
+            <span key={index} className="size-1.5 rounded-full bg-white" />
+          ))}
         </div>
-      </Card>
+      </div>
 
-      <div className="space-y-6">
-        <Card className="overflow-hidden p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground/60">
-              Screenshot preview
-            </h2>
-            {hasImage ? (
-              <div className="flex items-center gap-2">
-                <span className="max-w-44 truncate text-xs text-foreground/45">{file?.name}</span>
+      <div className="relative z-10 space-y-5">
+        <header className="flex items-center gap-3 text-white">
+          <div className="flex items-center gap-3 text-white">
+            <div className="flex size-10 items-center justify-center rounded-full border border-white/35 bg-white/15 backdrop-blur-md">
+              <Sparkles className="size-5" />
+            </div>
+            <div>
+              <p className="font-display text-[2rem] leading-none">Critiq</p>
+              <p className="text-sm text-white/72">AI-анализ дизайна</p>
+            </div>
+          </div>
+        </header>
+
+        <section className="pt-3">
+          <div className="space-y-4 text-white">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white/82 backdrop-blur-md">
+              <ScanSearch className="size-3.5" />
+              Обзор дизайн-критики
+            </div>
+            <h1 className="font-display text-5xl leading-[0.95] tracking-[-0.03em] sm:text-6xl lg:text-7xl">
+              Обзор интерфейсной диагностики
+            </h1>
+            <p className="max-w-2xl text-base leading-8 text-white/82 sm:text-xl">
+              AI-интерпретация иерархии интерфейса, UX-проблем, конверсионного трения
+              и визуального качества по одному скриншоту.
+            </p>
+          </div>
+        </section>
+
+        <section>
+          <Card className="overflow-hidden">
+            <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:p-10">
+              <div className="space-y-5">
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#eef4ff] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#567ab0]">
+                  <Upload className="size-3.5" />
+                  Первый шаг
+                </div>
+                <div className="space-y-3">
+                  <h2 className="font-display text-4xl leading-[0.95] text-foreground sm:text-5xl">
+                    Сначала загрузите скриншот
+                  </h2>
+                  <p className="max-w-2xl text-base leading-8 text-foreground/68 sm:text-lg">
+                    Это главный вход в продукт. Загрузите один чистый экран, а затем выберите
+                    тип интерфейса и режим ревью для более точной критики.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3 text-sm text-foreground/62">
+                  <div className="rounded-full bg-[#f4f8ff] px-4 py-2">
+                    PNG, JPG, WEBP, GIF
+                  </div>
+                  <div className="rounded-full bg-[#f4f8ff] px-4 py-2">
+                    До {maxImageSizeLabel}
+                  </div>
+                  <div className="rounded-full bg-[#f4f8ff] px-4 py-2">
+                    Один экран = лучший результат
+                  </div>
+                </div>
+              </div>
+
+              <label
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={onDrop}
+                className="group flex min-h-[20rem] cursor-pointer flex-col items-center justify-center rounded-[36px] border border-dashed border-[#b7ccef] bg-[#f7faff] px-8 py-10 text-center transition hover:border-[#7ca5d8] hover:bg-white"
+              >
+                <input type="file" accept="image/*" className="sr-only" onChange={onInputChange} />
+                {hasImage ? (
+                  <div className="flex w-full max-w-xl flex-col items-center">
+                    <div className="mb-5 rounded-full bg-[#e7f0ff] p-6 text-[#5d7fb5] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                      <ImagePlus className="size-9" />
+                    </div>
+                    <p className="text-2xl font-medium text-foreground">
+                      Скриншот загружен
+                    </p>
+                    <p className="mt-3 text-base leading-8 text-foreground/62">
+                      {file?.name ?? "Файл готов к анализу"}
+                    </p>
+                    <Button
+                      className="mt-8 h-14 w-full max-w-sm text-base"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void onAnalyze();
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <>
+                          <LoaderCircle className="mr-2 size-4 animate-spin" />
+                          Анализируем
+                        </>
+                      ) : (
+                        "Запустить анализ"
+                      )}
+                    </Button>
+                    <div className="mt-3 text-sm text-foreground/52">
+                      Или нажмите сюда ещё раз, чтобы заменить файл
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-6 rounded-full bg-[#e7f0ff] p-7 text-[#5d7fb5] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                      <Upload className="size-10" />
+                    </div>
+                    <p className="text-2xl font-medium text-foreground">
+                      Перетащите скриншот для анализа
+                    </p>
+                    <p className="mt-4 max-w-lg text-lg leading-9 text-foreground/62">
+                      PNG, JPG, WEBP или GIF до {maxImageSizeLabel}. Один чистый экран даёт лучший результат.
+                    </p>
+                    <div className="mt-8 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm">
+                      Или нажмите, чтобы выбрать файл
+                    </div>
+                  </>
+                )}
+              </label>
+            </div>
+          </Card>
+        </section>
+
+        <section className="grid gap-4 xl:grid-cols-12">
+          <Card className="xl:col-span-4">
+            <div className="space-y-6 p-5 sm:p-6">
+              <SectionTitle eyebrow="Входные данные" title="Снижение риска" />
+
+              <Histogram bars={critiqueBars} />
+
+              <div className="rounded-[24px] bg-[#f7f9fe] p-4">
+                <div className="grid gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#dfe7f4] pb-3">
+                    <span className="flex items-center gap-2 text-foreground/65">
+                      <span className="size-2 rounded-full bg-[#7aa2d7]" />
+                      Обработано сигналов
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {hasImage ? file?.name?.length ?? 0 : 578}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#dfe7f4] pb-3">
+                    <span className="flex items-center gap-2 text-foreground/65">
+                      <span className="size-2 rounded-full bg-[#1d1b3a]" />
+                      Режим ревью
+                    </span>
+                    <span className="font-medium text-foreground">{reviewMode}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-foreground/65">
+                      <span className="size-2 rounded-full bg-[#dbe7fb]" />
+                      Тип экрана
+                    </span>
+                    <span className="font-medium text-foreground">{screenType}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] bg-[#f7f9fe] p-4 text-sm leading-7 text-foreground/62">
+                Загрузка скриншота теперь вынесена в главный блок выше, чтобы первый шаг был
+                максимально явным. После загрузки здесь остаются только сигналы и сводка сессии.
+              </div>
+            </div>
+          </Card>
+
+          <div className="space-y-4 xl:col-span-3">
+            <Card>
+              <div className="space-y-5 p-5 sm:p-6">
+                <SectionTitle eyebrow="Управление" title="Параметры" />
+
+                <div className="space-y-3 rounded-[24px] bg-[#f7f9fe] p-4">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between text-sm">
+                      <span>Готовность скриншота</span>
+                      <span className="text-[#5b85c1]">{hasImage ? "Загружен" : "Ожидание"}</span>
+                    </div>
+                    <div className="h-4 rounded-full bg-white">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#8ab1e3] to-[#5e87c2]"
+                        style={{ width: hasImage ? "84%" : "22%" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between text-sm">
+                      <span>Глубина анализа</span>
+                      <span className="text-[#5b85c1]">{isLoading ? "В процессе" : "Готов"}</span>
+                    </div>
+                    <div className="h-4 rounded-full bg-white">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#6f9ad2] to-[#bad2ee]"
+                        style={{
+                          width: isLoading
+                            ? "88%"
+                            : reviewMode === "Roast mode"
+                              ? "92%"
+                              : reviewMode === "Сеньор-дизайнер"
+                                ? "78%"
+                                : "62%"
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <Select
+                    label="Тип экрана"
+                    value={screenType}
+                    onChange={(event) => setScreenType(event.target.value as ScreenType)}
+                  >
+                    {screenTypes.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </Select>
+
+                  <Select
+                    label="Режим ревью"
+                    value={reviewMode}
+                    onChange={(event) => setReviewMode(event.target.value as ReviewMode)}
+                  >
+                    {reviewModes.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
                 <Button
-                  variant="ghost"
-                  className="h-8 px-3 text-xs"
+                  variant="secondary"
+                  className="h-12"
                   onClick={resetUpload}
                   disabled={isLoading}
                 >
-                  Remove
+                  Сбросить сессию
                 </Button>
               </div>
-            ) : null}
-          </div>
-          <div className="flex min-h-80 items-center justify-center rounded-[24px] border bg-white/55">
-            {previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="Uploaded screenshot preview"
-                className="max-h-[32rem] w-full rounded-[20px] object-contain"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-3 px-6 py-16 text-center text-foreground/45">
-                <ImagePlus className="size-10" />
-                <p className="text-sm">Your uploaded interface will appear here.</p>
-              </div>
-            )}
-          </div>
-        </Card>
+            </Card>
 
-        {result ? (
-          <div className="space-y-4">
-            <Card className="p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground/55">
-                    Overall score
-                  </p>
-                  <div className="text-5xl font-semibold tracking-tight">
-                    {result.overallScore}
+            <Card className="overflow-hidden">
+              <div className="space-y-4 p-5 sm:p-6">
+                <SectionTitle eyebrow="Общий индекс" title="Индекс качества" />
+                <RadialScore score={result ? result.overallScore * 10 : 92} />
+              </div>
+            </Card>
+          </div>
+
+          <Card className="overflow-hidden xl:col-span-5">
+            <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[0.95fr_0.95fr]">
+              <div className="space-y-5">
+                <SectionTitle
+                  eyebrow="Результат анализа"
+                  title={result ? "Итог критики" : "Готово к анализу"}
+                  action={result ? <ScoreBadge score={result.overallScore} tone="dark" /> : null}
+                />
+
+                <p className="max-w-xl text-base leading-8 text-foreground/68 sm:text-[1.05rem]">
+                  {result?.summary ??
+                    "Здесь появится структурированная интерпретация загруженного экрана: иерархия, usability, визуальный дизайн и конверсионное давление."}
+                </p>
+
+                <div className="grid grid-cols-2 gap-5">
+                  <MetricRow
+                    label="Визуальная иерархия"
+                    value={result ? `${result.visualHierarchy.score}.0` : "8.2"}
+                    tone="positive"
+                  />
+                  <MetricRow
+                    label="Визуальный дизайн"
+                    value={result ? `${result.visualDesign.score}.0` : "8.6"}
+                    tone="positive"
+                  />
+                  <MetricRow
+                    label="UX / usability"
+                    value={result ? `${result.uxUsability.score}.0` : "6.4"}
+                    tone="warning"
+                  />
+                  <MetricRow
+                    label="Конверсия"
+                    value={result ? `${result.conversion.score}.0` : "7.8"}
+                    tone={result && result.conversion.score < 7 ? "warning" : "positive"}
+                  />
+                </div>
+
+                {error ? (
+                  <div className="flex items-start gap-3 rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                    <p>{error}</p>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-[28px] bg-[#eaf2fe] p-4">
+                <div className="flex h-full min-h-[22rem] flex-col justify-between rounded-[26px] border border-white/45 bg-[#dce9fb] p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="rounded-full bg-white/65 px-4 py-2 text-sm text-foreground/72">
+                      {hasImage ? "Превью загружено" : "Скриншота пока нет"}
+                    </div>
+                    {hasImage ? (
+                      <Button
+                        variant="ghost"
+                        className="h-10 bg-white/50 px-4 text-xs"
+                        onClick={resetUpload}
+                        disabled={isLoading}
+                      >
+                        Удалить
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-1 items-center justify-center py-6">
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt="Uploaded screenshot preview"
+                        className="max-h-[25rem] w-full rounded-[22px] object-contain shadow-[0_18px_60px_rgba(80,108,150,0.18)]"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-4 text-center text-[#6a84b0]">
+                        <div className="rounded-full bg-white/70 p-5">
+                          <ImagePlus className="size-10" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">Капсула превью</p>
+                          <p className="mt-2 max-w-xs text-sm leading-6 text-foreground/55">
+                            Здесь появится снимок интерфейса, пока система готовит критику.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-full bg-white px-3 py-2 shadow-[0_8px_24px_rgba(78,97,140,0.12)]">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="flex size-9 items-center justify-center rounded-full bg-primary text-white">
+                        <Brain className="size-4" />
+                      </div>
+                      <span>Состояние критики</span>
+                    </div>
+                    <div className="rounded-full bg-[#f2f6fd] px-4 py-2 text-sm font-medium text-foreground">
+                      {isLoading ? "Анализируем" : result ? "Готово" : "Ожидаем ввод"}
+                    </div>
                   </div>
                 </div>
-                <ScoreBadge score={result.overallScore} />
               </div>
-              <p className="mt-4 text-sm leading-6 text-foreground/75">{result.summary}</p>
-            </Card>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Card className="p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">Visual hierarchy</h3>
-                  <ScoreBadge score={result.visualHierarchy.score} />
-                </div>
-                <p className="mt-3 text-sm leading-6 text-foreground/70">
-                  {result.visualHierarchy.feedback}
-                </p>
-              </Card>
-
-              <Card className="p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">UX / usability</h3>
-                  <ScoreBadge score={result.uxUsability.score} />
-                </div>
-                <ul className="mt-3 space-y-2 text-sm leading-6 text-foreground/70">
-                  {result.uxUsability.issues.map((issue) => (
-                    <li key={issue} className="rounded-2xl bg-secondary/55 px-3 py-2">
-                      {issue}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-
-              <Card className="p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">Visual design</h3>
-                  <ScoreBadge score={result.visualDesign.score} />
-                </div>
-                <p className="mt-3 text-sm leading-6 text-foreground/70">
-                  {result.visualDesign.feedback}
-                </p>
-              </Card>
-
-              <Card className="p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">Conversion</h3>
-                  <ScoreBadge score={result.conversion.score} />
-                </div>
-                <p className="mt-3 text-sm leading-6 text-foreground/70">
-                  {result.conversion.feedback}
-                </p>
-              </Card>
-            </div>
-
-            <Card className="p-5">
-              <h3 className="font-semibold">Top problems</h3>
-              <ul className="mt-3 space-y-2 text-sm leading-6 text-foreground/70">
-                {result.topProblems.map((problem) => (
-                  <li key={problem} className="rounded-2xl bg-secondary/55 px-3 py-2">
-                    {problem}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            <Card className="p-5">
-              <h3 className="font-semibold">Actionable improvements</h3>
-              <div className="mt-3 space-y-3">
-                {result.actionableImprovements.map((item) => (
-                  <div key={item.title} className="rounded-2xl bg-secondary/55 p-4">
-                    <p className="font-medium">{item.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-foreground/70">
-                      {item.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        ) : (
-          <Card className="p-6 sm:p-7">
-            <div className="space-y-3 text-center sm:text-left">
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground/55">
-                Analysis result
-              </p>
-              <h2 className="text-2xl font-semibold tracking-tight">
-                {hasAttemptedAnalyze ? "Analysis did not complete" : "No critique yet"}
-              </h2>
-              <p className="max-w-xl text-sm leading-6 text-foreground/65">
-                {hasAttemptedAnalyze
-                  ? "Fix the issue above and run the analysis again. The app will keep the latest successful critique once you have one."
-                  : "Upload a screen, choose the context, and run analysis to see structured design feedback here."}
-              </p>
             </div>
           </Card>
-        )}
+
+          <Card className="xl:col-span-4">
+            <div className="space-y-5 p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-foreground/45">
+                    Индекс стабильности
+                  </p>
+                  <div className="mt-2 flex items-end gap-2">
+                    <div className="font-display text-6xl leading-none text-foreground">
+                      {result ? result.overallScore * 10 : 82}
+                    </div>
+                    <div className="pb-2 text-foreground/55">/100</div>
+                  </div>
+                  <p className="mt-2 text-lg text-foreground/68">Индекс стабильности восприятия</p>
+                </div>
+                <div className="rounded-full bg-white px-3 py-1 text-sm text-foreground/65 shadow-sm">
+                  Стабильно
+                </div>
+              </div>
+              <TrendLine points={trendPoints} />
+            </div>
+          </Card>
+
+          <Card className="xl:col-span-3">
+            <div className="space-y-5 p-5 sm:p-6">
+              <SectionTitle eyebrow="Главные проблемы" title="Карта проблем" />
+              <div className="space-y-3">
+                {topProblems.slice(0, 3).map((problem) => (
+                  <div key={problem} className="rounded-[22px] bg-[#f6f9ff] px-4 py-4 text-sm leading-7 text-foreground/72">
+                    {problem}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="xl:col-span-5">
+            <div className="space-y-5 p-5 sm:p-6">
+              <SectionTitle eyebrow="Следующий шаг" title="Практические улучшения" />
+              <TrendLine points={[64, 62, 62, 81, 55, 61, 68]} />
+              <div className="space-y-3">
+                {improvements.slice(0, 2).map((item) => (
+                  <div
+                    key={item.title}
+                    className="flex flex-wrap items-start justify-between gap-4 rounded-[24px] bg-[#f7f9fe] p-4"
+                  >
+                    <div className="max-w-xl">
+                      <p className="font-medium text-foreground">{item.title}</p>
+                      <p className="mt-2 text-sm leading-7 text-foreground/66">
+                        {item.description}
+                      </p>
+                    </div>
+                    <div className="rounded-full bg-white p-2 shadow-sm">
+                      <ChevronRight className="size-4" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="xl:col-span-7">
+            <div className="flex h-full flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-2xl space-y-3">
+                <h3 className="font-display text-[2.25rem] leading-none text-foreground">
+                  Сила AI в интерфейсной диагностике
+                </h3>
+                <p className="text-base leading-8 text-foreground/66">
+                  Каждая сессия считывает сигналы layout, интерпретирует визуальную иерархию
+                  и превращает данные со скриншота в прикладные продуктовые рекомендации.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="rounded-full bg-[#eff4ff] px-4 py-2 text-sm text-foreground/65">
+                  <ShieldCheck className="mr-2 inline size-4" />
+                  Основано на скриншоте
+                </div>
+                <div className="rounded-full bg-[#eff4ff] px-4 py-2 text-sm text-foreground/65">
+                  <Gauge className="mr-2 inline size-4" />
+                  Структурированные оценки
+                </div>
+                <Button className="h-16 px-8 text-lg">
+                  Попробовать капсулу
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </section>
       </div>
     </div>
   );

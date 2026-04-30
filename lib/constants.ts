@@ -1,14 +1,14 @@
 export const screenTypes = [
-  "Landing page",
-  "Mobile app",
-  "Dashboard",
+  "Лендинг",
+  "Мобильное приложение",
+  "Дашборд",
   "E-commerce",
-  "SaaS product"
+  "SaaS-продукт"
 ] as const;
 
 export const reviewModes = [
-  "Neutral",
-  "Senior designer",
+  "Нейтральный",
+  "Сеньор-дизайнер",
   "Roast mode"
 ] as const;
 
@@ -30,16 +30,16 @@ export const openAiModel = "gpt-4.1-mini";
 export const openAiTimeoutMs = 25_000;
 
 export const errorMessages = {
-  invalidPayload: "Invalid request payload.",
-  invalidJson: "Request body must be valid JSON.",
-  missingApiKey: "OPENAI_API_KEY is not configured.",
-  unsupportedImage: "Upload a PNG, JPG, WEBP, or GIF image.",
-  imageTooLarge: `Image must be smaller than ${maxImageSizeLabel}.`,
-  rateLimited: "Too many analysis requests. Please wait a minute and try again.",
-  openAiFailure: "The AI analysis request failed. Please try again.",
-  invalidModelResponse: "The model returned an invalid critique response.",
-  networkError: "Network error. Please check your connection and try again.",
-  serverError: "Unexpected server error. Please try again."
+  invalidPayload: "Некорректные данные запроса.",
+  invalidJson: "Тело запроса должно быть валидным JSON.",
+  missingApiKey: "OPENAI_API_KEY не настроен.",
+  unsupportedImage: "Загрузите изображение PNG, JPG, WEBP или GIF.",
+  imageTooLarge: `Изображение должно быть меньше ${maxImageSizeLabel}.`,
+  rateLimited: "Слишком много запросов на анализ. Подождите минуту и попробуйте снова.",
+  openAiFailure: "Не удалось получить AI-анализ. Попробуйте ещё раз.",
+  invalidModelResponse: "Модель вернула некорректный результат анализа.",
+  networkError: "Ошибка сети. Проверьте подключение и попробуйте снова.",
+  serverError: "Непредвиденная ошибка сервера. Попробуйте снова."
 } as const;
 
 export const errorCodes = {

@@ -9,34 +9,34 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        border: "hsl(30 10% 82%)",
-        input: "hsl(30 10% 82%)",
-        ring: "hsl(12 65% 44%)",
-        background: "hsl(36 40% 96%)",
-        foreground: "hsl(18 16% 14%)",
+        border: "hsla(219 45% 72% / 0.5)",
+        input: "hsla(219 45% 72% / 0.5)",
+        ring: "hsl(223 44% 35%)",
+        background: "hsl(215 63% 92%)",
+        foreground: "hsl(227 32% 18%)",
         primary: {
-          DEFAULT: "hsl(12 65% 44%)",
-          foreground: "hsl(36 40% 96%)"
+          DEFAULT: "hsl(236 33% 22%)",
+          foreground: "hsl(0 0% 100%)"
         },
         secondary: {
-          DEFAULT: "hsl(42 24% 89%)",
-          foreground: "hsl(18 16% 18%)"
+          DEFAULT: "hsla(218 57% 95% / 0.7)",
+          foreground: "hsl(227 32% 18%)"
         },
         muted: {
-          DEFAULT: "hsl(42 24% 92%)",
-          foreground: "hsl(20 10% 38%)"
+          DEFAULT: "hsla(221 56% 96% / 0.78)",
+          foreground: "hsl(222 18% 42%)"
         },
         card: {
-          DEFAULT: "hsla(0 0% 100% / 0.72)",
-          foreground: "hsl(18 16% 14%)"
+          DEFAULT: "hsla(0 0% 100% / 0.9)",
+          foreground: "hsl(227 32% 18%)"
         }
       },
       borderRadius: {
-        lg: "1rem",
-        xl: "1.5rem"
+        lg: "1.25rem",
+        xl: "1.75rem"
       },
       boxShadow: {
-        panel: "0 20px 50px rgba(67, 34, 11, 0.08)"
+        panel: "0 18px 60px rgba(39, 67, 120, 0.16)"
       },
       fontFamily: {
         sans: ["'Segoe UI'", "ui-sans-serif", "system-ui", "sans-serif"]

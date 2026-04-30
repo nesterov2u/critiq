@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Design Critique AI",
-  description: "Upload a UI screenshot and get structured AI design critique."
+  title: "Critiq",
+  description: "Загрузите скриншот интерфейса и получите структурированную AI-критику дизайна."
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <body>{children}</body>
     </html>
   );

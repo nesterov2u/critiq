@@ -13,7 +13,7 @@ export function Select({ className, label, children, ...props }: SelectProps) {
       <span className="relative block">
         <select
           className={cn(
-            "h-12 w-full appearance-none rounded-2xl border bg-white/70 px-4 pr-10 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20",
+            "h-12 w-full appearance-none rounded-full border border-white/30 bg-white/60 px-4 pr-10 text-sm outline-none backdrop-blur-md transition focus:border-ring focus:ring-2 focus:ring-ring/20",
             className
           )}
           {...props}

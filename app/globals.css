@@ -13,9 +13,10 @@
 body {
   @apply bg-background text-foreground font-sans antialiased;
   background-image:
-    radial-gradient(circle at top left, rgba(217, 119, 87, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(122, 153, 96, 0.15), transparent 24%),
-    linear-gradient(180deg, #fbf7f0 0%, #f5efe4 100%);
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.38), transparent 18%),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 22%),
+    linear-gradient(180deg, #7ea8dc 0%, #98b8e4 34%, #dce7f7 100%);
+  min-height: 100vh;
 }
 
 button,
@@ -23,4 +24,8 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+.font-display {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
 }
