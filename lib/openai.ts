@@ -89,6 +89,7 @@ Rules:
 - Be specific and practical.
 - Do not invent invisible interactions.
 - Mention uncertainty if something cannot be determined from the screenshot.
+- Write every text field in the JSON output in Russian.
 - Use scores from 1 to 10.
 - Return only valid JSON.
 - If review mode is Roast mode, be sharper but still useful.`;

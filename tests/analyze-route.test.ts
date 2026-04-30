@@ -15,28 +15,28 @@ const validPayload = {
 
 const critique = {
   overallScore: 8,
-  summary: "Useful critique.",
+  summary: "Полезная критика интерфейса.",
   visualHierarchy: {
     score: 8,
-    feedback: "Good contrast."
+    feedback: "Контраст и акценты читаются уверенно."
   },
   uxUsability: {
     score: 7,
-    issues: ["Navigation affordance is weak."]
+    issues: ["Навигационные элементы выглядят недостаточно заметно."]
   },
   visualDesign: {
     score: 8,
-    feedback: "Spacing is consistent."
+    feedback: "Отступы в целом выглядят последовательно."
   },
   conversion: {
     score: 6,
-    feedback: "CTA hierarchy could be stronger."
+    feedback: "Иерархию CTA стоит сделать заметно сильнее."
   },
-  topProblems: ["CTA emphasis is insufficient."],
+  topProblems: ["Главный CTA недостаточно выделен."],
   actionableImprovements: [
     {
-      title: "Strengthen CTA",
-      description: "Increase contrast and isolate it with more spacing."
+      title: "Усилить главный CTA",
+      description: "Добавьте больше контраста и свободного пространства вокруг кнопки."
     }
   ]
 };
