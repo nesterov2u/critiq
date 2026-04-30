@@ -1,3 +1,4 @@
+import { toFile } from "openai";
 import { jsonError, jsonSuccess } from "@/lib/api";
 import {
   errorCodes,
@@ -74,11 +75,13 @@ export async function POST(request: Request) {
       return jsonError(errorMessages.unsupportedImage, errorCodes.unsupportedImage, 400);
     }
 
-    const fileUploadBody = new FormData();
     const binary = Buffer.from(getBase64Body(validatedPayload.data.imageBase64), "base64");
-    const blob = new Blob([binary], { type: mimeType });
+    const fileUploadBody = new FormData();
+    const file = await toFile(binary, buildImageFileName(mimeType), {
+      type: mimeType
+    });
     fileUploadBody.append("purpose", "vision");
-    fileUploadBody.append("file", blob, buildImageFileName(mimeType));
+    fileUploadBody.append("file", file);
 
     const fileUploadResponse = await fetch("https://api.openai.com/v1/files", {
       method: "POST",
