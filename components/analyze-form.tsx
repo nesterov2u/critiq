@@ -60,6 +60,18 @@ function getUploadValidationError(file: File) {
   return "";
 }
 
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} Б`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} КБ`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+}
+
 function getErrorMessage(response: AnalyzeResponse | null) {
   if (!response || response.ok) {
     return errorMessages.serverError;
@@ -169,21 +181,6 @@ function RadialScore({ score }: { score: number }) {
   );
 }
 
-function Histogram({ bars }: { bars: number[] }) {
-  return (
-    <div className="flex h-32 items-end gap-2 rounded-[24px] bg-[#f5f8fe] px-4 pb-4 pt-6">
-      {bars.map((value, index) => (
-        <div key={`${value}-${index}`} className="flex h-full flex-1 items-end">
-          <div
-            className="w-full rounded-full bg-gradient-to-t from-[#688ec2] to-[#bcd2ee]"
-            style={{ height: `${Math.max(value, 8)}%` }}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function TrendLine({ points }: { points: number[] }) {
   return (
     <div className="relative h-44 rounded-[24px] bg-[#f7f9fe] p-4">
@@ -234,6 +231,7 @@ export function AnalyzeForm() {
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [hasAttemptedAnalyze, setHasAttemptedAnalyze] = useState(false);
+  const [lastAnalyzedAt, setLastAnalyzedAt] = useState<string>("");
 
   const hasImage = useMemo(() => Boolean(file && previewUrl), [file, previewUrl]);
 
@@ -244,20 +242,6 @@ export function AnalyzeForm() {
       }
     };
   }, [previewUrl]);
-
-  const critiqueBars = useMemo(() => {
-    if (!result) {
-      return [22, 38, 64, 42, 18, 27, 84, 76, 34, 18, 12, 10];
-    }
-
-    return [
-      result.visualHierarchy.score * 8.5,
-      result.uxUsability.score * 8,
-      result.visualDesign.score * 8.8,
-      result.conversion.score * 8.1,
-      result.overallScore * 9
-    ];
-  }, [result]);
 
   const trendPoints = useMemo(() => {
     if (!result) {
@@ -324,6 +308,7 @@ export function AnalyzeForm() {
     updateFile(null);
     setHasAttemptedAnalyze(false);
     setResult(null);
+    setLastAnalyzedAt("");
   };
 
   const onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -377,6 +362,14 @@ export function AnalyzeForm() {
       }
 
       setResult(rawPayload.data);
+      setLastAnalyzedAt(
+        new Intl.DateTimeFormat("ru-RU", {
+          day: "2-digit",
+          month: "long",
+          hour: "2-digit",
+          minute: "2-digit"
+        }).format(new Date())
+      );
     } catch (caughtError) {
       setError(
         caughtError instanceof Error ? caughtError.message : errorMessages.serverError
@@ -520,19 +513,41 @@ export function AnalyzeForm() {
         <section className="grid gap-4 xl:grid-cols-12">
           <Card className="xl:col-span-4">
             <div className="space-y-6 p-5 sm:p-6">
-              <SectionTitle eyebrow="Входные данные" title="Снижение риска" />
-
-              <Histogram bars={critiqueBars} />
+              <SectionTitle eyebrow="Входные данные" title="Сеанс анализа" />
 
               <div className="rounded-[24px] bg-[#f7f9fe] p-4">
                 <div className="grid gap-3 text-sm">
                   <div className="flex items-center justify-between gap-3 border-b border-[#dfe7f4] pb-3">
                     <span className="flex items-center gap-2 text-foreground/65">
                       <span className="size-2 rounded-full bg-[#7aa2d7]" />
-                      Обработано сигналов
+                      Статус
                     </span>
                     <span className="font-medium text-foreground">
-                      {hasImage ? file?.name?.length ?? 0 : 578}
+                      {isLoading
+                        ? "Анализируем"
+                        : result
+                          ? "Анализ готов"
+                          : hasImage
+                            ? "Готов к запуску"
+                            : "Ожидает скриншот"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#dfe7f4] pb-3">
+                    <span className="flex items-center gap-2 text-foreground/65">
+                      <span className="size-2 rounded-full bg-[#4e6ea8]" />
+                      Файл
+                    </span>
+                    <span className="max-w-[13rem] truncate text-right font-medium text-foreground">
+                      {file?.name ?? "Не загружен"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#dfe7f4] pb-3">
+                    <span className="flex items-center gap-2 text-foreground/65">
+                      <span className="size-2 rounded-full bg-[#8eaee0]" />
+                      Размер
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {file ? formatFileSize(file.size) : "—"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3 border-b border-[#dfe7f4] pb-3">
@@ -549,12 +564,25 @@ export function AnalyzeForm() {
                     </span>
                     <span className="font-medium text-foreground">{screenType}</span>
                   </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-foreground/65">
+                      <span className="size-2 rounded-full bg-[#dbe7fb]" />
+                      Последний запуск
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {lastAnalyzedAt || "Ещё не запускался"}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="rounded-[24px] bg-[#f7f9fe] p-4 text-sm leading-7 text-foreground/62">
-                Загрузка скриншота теперь вынесена в главный блок выше, чтобы первый шаг был
-                максимально явным. После загрузки здесь остаются только сигналы и сводка сессии.
+              <div className="rounded-[24px] bg-[#f7f9fe] p-4">
+                <p className="text-sm font-medium text-foreground">Что показывает карточка</p>
+                <p className="mt-2 text-sm leading-7 text-foreground/62">
+                  Здесь собрана полезная сводка по текущей сессии: какой скриншот выбран, в
+                  каком режиме будет идти критика, какой тип экрана анализируется и когда
+                  последний раз запускался анализ.
+                </p>
               </div>
             </div>
           </Card>
