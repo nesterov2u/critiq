@@ -27,12 +27,32 @@ function logServerError(code: string, error: unknown, details?: Record<string, u
   });
 }
 
+function getDebugMode(request: Request) {
+  return request.headers.get("x-critiq-debug") === "1";
+}
+
+function getDebugMessage(
+  fallbackMessage: string,
+  debugEnabled: boolean,
+  details?: Record<string, unknown>
+) {
+  if (!debugEnabled || !details) {
+    return fallbackMessage;
+  }
+
+  return JSON.stringify({
+    error: fallbackMessage,
+    ...details
+  });
+}
+
 export async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY) {
     return jsonError(errorMessages.missingApiKey, errorCodes.serverError, 500);
   }
 
   const ip = getRequestIp(request);
+  const debugEnabled = getDebugMode(request);
   const rateLimit = checkRateLimit(ip);
 
   if (!rateLimit.allowed) {
@@ -101,7 +121,15 @@ export async function POST(request: Request) {
         stage: "file_upload"
       });
 
-      return jsonError(errorMessages.openAiFailure, errorCodes.openAiFailure, 502);
+      return jsonError(
+        getDebugMessage(errorMessages.openAiFailure, debugEnabled, {
+          stage: "file_upload",
+          status: fileUploadResponse.status,
+          upstream: errorText.slice(0, 500)
+        }),
+        errorCodes.openAiFailure,
+        502
+      );
     }
 
     const uploadedFile = (await fileUploadResponse.json()) as { id?: string };
@@ -113,7 +141,14 @@ export async function POST(request: Request) {
         stage: "file_upload"
       });
 
-      return jsonError(errorMessages.openAiFailure, errorCodes.openAiFailure, 502);
+      return jsonError(
+        getDebugMessage(errorMessages.openAiFailure, debugEnabled, {
+          stage: "file_upload",
+          upstream: "Missing file id"
+        }),
+        errorCodes.openAiFailure,
+        502
+      );
     }
 
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -134,7 +169,15 @@ export async function POST(request: Request) {
         stage: "responses"
       });
 
-      return jsonError(errorMessages.openAiFailure, errorCodes.openAiFailure, 502);
+      return jsonError(
+        getDebugMessage(errorMessages.openAiFailure, debugEnabled, {
+          stage: "responses",
+          status: response.status,
+          upstream: errorText.slice(0, 500)
+        }),
+        errorCodes.openAiFailure,
+        502
+      );
     }
 
     const completion = (await response.json()) as unknown;
